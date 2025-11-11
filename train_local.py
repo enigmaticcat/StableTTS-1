@@ -18,6 +18,8 @@ def parse_args():
     p.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
     p.add_argument('--max-steps', type=int, default=None, help='Optional: stop after this many optimizer steps')
     p.add_argument('--save-dir', default=None, help='Optional: override model_save_path from config')
+    p.add_argument('--resume-from', type=str, default=None, help='Path to model checkpoint .pt to resume training')
+    p.add_argument('--start-epoch', type=int, default=None, help='Epoch to start training from manually')
     return p.parse_args()
 
 
