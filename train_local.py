@@ -38,15 +38,31 @@ def main():
 
     # dataset / loader
     dataset = StableDataset(train_config.train_dataset_path, mel_config.hop_length)
-    loader = DataLoader(dataset, batch_size=train_config.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=4, pin_memory=True)
+    loader = DataLoader(dataset, batch_size=train_config.batch_size, shuffle=True,
+                        collate_fn=collate_fn, num_workers=4, pin_memory=True)
 
     model = StableTTS(len(symbols), mel_config.n_mels, **asdict(model_config)).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=train_config.learning_rate)
+    scheduler = get_cosine_schedule_with_warmup(
+        optimizer,
+        num_warmup_steps=int(train_config.warmup_steps),
+        num_training_steps=train_config.num_epochs * len(loader)
+    )
 
-    scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=int(train_config.warmup_steps), num_training_steps=train_config.num_epochs * len(loader))
-
-    # resume if any
-    current_epoch = continue_training(train_config.model_save_path, model, optimizer)
+    # ============ RESUME LOGIC ============
+    if args.resume_from:
+        print(f"✅ Resuming from specific checkpoint: {args.resume_from}")
+        checkpoint = torch.load(args.resume_from, map_location=device)
+        model.load_state_dict(checkpoint)
+        opt_path = args.resume_from.replace("checkpoint", "optimizer")
+        if os.path.exists(opt_path):
+            optimizer.load_state_dict(torch.load(opt_path, map_location=device))
+            print(f"✅ Loaded optimizer state from {opt_path}")
+        current_epoch = args.start_epoch or 0
+        print(f"📌 Starting from epoch {current_epoch}")
+    else:
+        current_epoch = continue_training(train_config.model_save_path, model, optimizer)
+    # =====================================
 
     writer = SummaryWriter(train_config.log_dir)
 
@@ -71,14 +87,13 @@ def main():
                     writer.add_scalar('training/prior_loss', prior_loss.item(), step)
 
                 if step % (train_config.save_interval * len(loader)) == 0:
-                    # save checkpoint
                     ckpt_path = os.path.join(train_config.model_save_path, f'checkpoint_step_{step}.pt')
                     opt_path = os.path.join(train_config.model_save_path, f'optimizer_step_{step}.pt')
                     torch.save(model.state_dict(), ckpt_path)
                     torch.save(optimizer.state_dict(), opt_path)
                     print(f"💾 Saved checkpoint at step {step}")
 
-                    # auto cleanup (keep 5 latest)
+                    # 🔹 Auto cleanup: keep 5 latest checkpoints
                     import glob
                     ckpts = sorted(
                         glob.glob(os.path.join(train_config.model_save_path, "checkpoint_step_*.pt")),
