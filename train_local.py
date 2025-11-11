@@ -1,4 +1,5 @@
 import os
+import re
 import argparse
 import torch
 from torch.utils.data import DataLoader
@@ -16,12 +17,17 @@ from utils.scheduler import get_cosine_schedule_with_warmup
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
-    p.add_argument('--max-steps', type=int, default=None, help='Optional: stop after this many optimizer steps')
-    p.add_argument('--save-dir', default=None, help='Optional: override model_save_path from config')
-    p.add_argument('--resume-from', type=str, default=None, help='Path to model checkpoint .pt to resume training')
-    p.add_argument('--optimizer-path', type=str, default=None, help='Optional: path to optimizer state .pt (can be different folder)')
-    p.add_argument('--start-epoch', type=int, default=None, help='Epoch to start training from manually')
+    p.add_argument('--max-steps', type=int, default=None)
+    p.add_argument('--save-dir', type=str, default=None)
+    p.add_argument('--resume-from', type=str, default=None, help='Path to model checkpoint .pt')
+    p.add_argument('--optimizer-path', type=str, default=None, help='Path to optimizer state .pt')
     return p.parse_args()
+
+
+def extract_step_from_name(path: str):
+    """Tự động lấy số step từ tên file nếu có (vd: checkpoint_step_4368.pt)."""
+    m = re.search(r"step_(\d+)", os.path.basename(path))
+    return int(m.group(1)) if m else 0
 
 
 def main():
@@ -32,7 +38,7 @@ def main():
     model_config = ModelConfig()
     train_config = TrainConfig()
 
-    if args.save-dir:
+    if args.save_dir:
         train_config.model_save_path = args.save_dir
 
     os.makedirs(train_config.model_save_path, exist_ok=True)
@@ -50,33 +56,36 @@ def main():
         num_training_steps=train_config.num_epochs * len(loader)
     )
 
-    # ============ RESUME LOGIC ============
+    # ===================== RESUME =====================
+    step = 0
     if args.resume_from:
         ckpt_path = args.resume_from
         print(f"✅ Resuming model from: {ckpt_path}")
         model.load_state_dict(torch.load(ckpt_path, map_location=device))
 
-        # Ưu tiên optimizer_path nếu có, nếu không tự suy ra
-        opt_path = args.optimizer_path or ckpt_path.replace("checkpoint", "optimizer")
+        if args.optimizer_path:
+            opt_path = args.optimizer_path
+        else:
+            opt_path = ckpt_path.replace("checkpoint", "optimizer")
+
         if os.path.exists(opt_path):
             optimizer.load_state_dict(torch.load(opt_path, map_location=device))
             print(f"✅ Loaded optimizer from: {opt_path}")
         else:
             print(f"⚠️ Optimizer not found at {opt_path}, continuing with new optimizer state.")
 
-        current_epoch = args.start_epoch or 0
-        print(f"📌 Starting training from epoch {current_epoch}")
-
+        step = extract_step_from_name(ckpt_path)
+        print(f"📌 Resumed training at step {step}")
     else:
-        current_epoch = continue_training(train_config.model_save_path, model, optimizer)
-    # =====================================
+        step = 0
+        continue_training(train_config.model_save_path, model, optimizer)
+    # ==================================================
 
     writer = SummaryWriter(train_config.log_dir)
 
-    step = 0
     try:
         model.train()
-        for epoch in range(current_epoch, train_config.num_epochs):
+        while True:
             for batch_idx, datas in enumerate(loader):
                 datas = [d.to(device, non_blocking=True) for d in datas]
                 x, x_lengths, y, y_lengths, z, z_lengths = datas
@@ -100,7 +109,7 @@ def main():
                     torch.save(optimizer.state_dict(), opt_path)
                     print(f"💾 Saved checkpoint at step {step}")
 
-                    # 🔹 Auto cleanup: keep 5 latest checkpoints
+                    # Auto cleanup: keep 5 latest checkpoints
                     import glob
                     ckpts = sorted(
                         glob.glob(os.path.join(train_config.model_save_path, "checkpoint_step_*.pt")),
@@ -119,13 +128,11 @@ def main():
 
                 step += 1
                 if args.max_steps and step >= args.max_steps:
-                    print('Reached max-steps, exiting')
+                    print('✅ Reached max-steps, exiting.')
                     return
 
-            print(f'Epoch {epoch} finished, step={step}, last_loss={loss.item()}')
-
     except KeyboardInterrupt:
-        print('Interrupted — saving model...')
+        print('⛔ Interrupted — saving model...')
         torch.save(model.state_dict(), os.path.join(train_config.model_save_path, f'checkpoint_interrupt.pt'))
 
 
