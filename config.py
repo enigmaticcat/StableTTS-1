@@ -31,8 +31,8 @@ class ModelConfig:
             
 @dataclass
 class TrainConfig:
-    train_dataset_path: str = 'filelists/filelist.json'
-    test_dataset_path: str = 'filelists/filelist.json' # not used
+    train_dataset_path: str = 'filelists/khmer.json'  # Changed to match preprocessed file
+    test_dataset_path: str = 'filelists/khmer.json' # not used
     batch_size: int = 32
     learning_rate: float = 1e-4
     num_epochs: int = 10000

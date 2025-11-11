@@ -2,6 +2,8 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 import torchaudio
+import soundfile as sf
+import os
 
 class LinearSpectrogram(nn.Module):
     def __init__(self, n_fft, win_length, hop_length, pad, center, pad_mode):
@@ -56,19 +58,28 @@ class LogMelSpectrogram(nn.Module):
         x = self.compress(x)
         return x
     
-def load_and_resample_audio(audio_path, target_sr, device='cpu') -> Tensor:
-    try:
-        y, sr = torchaudio.load(audio_path)
-    except Exception as e:
-        print(str(e))
+def load_and_resample_audio(audio_path, target_sr, device='cpu'):
+    if not os.path.exists(audio_path):
+        print(f"[ERROR] File not found: {audio_path}")
         return None
-    
-    y.to(device)
-    # Convert to mono
+
+    try:
+        # ⚙️ Dùng soundfile thay vì torchaudio.load để tránh TorchCodec
+        y, sr = sf.read(audio_path, always_2d=True)
+        y = torch.from_numpy(y.T).float()  # [C, T]
+        print(f"[INFO] Loaded audio via soundfile: {audio_path}, sr={sr}, shape={y.shape}")
+    except Exception as e:
+        print(f"[ERROR] Cannot load audio: {audio_path}\n{e}")
+        return None
+
+    y = y.to(device)
+
+    # 🔉 Convert stereo → mono
     if y.size(0) > 1:
-        y = y[0, :].unsqueeze(0) # shape: [2, time] -> [time] -> [1, time]
-        
-    # resample audio to target sample_rate
+        y = y.mean(dim=0, keepdim=True)
+
+    # 🔁 Resample nếu tần số không trùng
     if sr != target_sr:
         y = torchaudio.functional.resample(y, sr, target_sr)
+
     return y

@@ -81,6 +81,7 @@ def train(rank, world_size):
     generator.train()
     mpd.train()
     mrd.train()
+    loss_gen_all = torch.tensor(0.0)  # Giá trị mặc định để tránh lỗi UnboundLocalError
     for epoch in range(current_epoch, train_config.num_epochs):  # loop over the train_dataset multiple times
         train_dataloader.sampler.set_epoch(epoch)
         if rank == 0:

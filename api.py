@@ -8,10 +8,11 @@ from config import ModelConfig, MelConfig
 from models.model import StableTTS
 
 from text import symbols
-from text import cleaned_text_to_sequence
+from text import cleaned_text_to_sequence, cleaned_text_to_sequence_chinese
 from text.mandarin import chinese_to_cnm3
 from text.english import english_to_ipa2
 from text.japanese import japanese_to_ipa2
+from text.khmer import khmer_g2p
 
 from datas.dataset import intersperse
 from utils.audio import load_and_resample_audio
@@ -57,6 +58,7 @@ class StableTTSAPI(nn.Module):
             'chinese': chinese_to_cnm3,
             'japanese': japanese_to_ipa2,
             'english': english_to_ipa2,
+            'khmer': khmer_g2p,
         }
         self.supported_languages = self.g2p_mapping.keys()
         
@@ -66,7 +68,15 @@ class StableTTSAPI(nn.Module):
         phonemizer = self.g2p_mapping.get(language)
         
         text = phonemizer(text)
-        text = torch.tensor(intersperse(cleaned_text_to_sequence(text), item=0), dtype=torch.long, device=device).unsqueeze(0)
+
+        # Dùng hàm sequence phù hợp cho từng ngôn ngữ
+        if language in ['chinese', 'japanese', 'khmer']:
+            seq = cleaned_text_to_sequence_chinese(text)
+        else:
+            seq = cleaned_text_to_sequence(text)
+
+        text = torch.tensor(intersperse(seq, item=0), dtype=torch.long, device=device).unsqueeze(0)
+
         text_length = torch.tensor([text.size(-1)], dtype=torch.long, device=device)
         
         ref_audio = load_and_resample_audio(ref_audio, self.mel_config.sample_rate).to(device)
