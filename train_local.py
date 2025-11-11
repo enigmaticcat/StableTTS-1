@@ -19,6 +19,7 @@ def parse_args():
     p.add_argument('--max-steps', type=int, default=None, help='Optional: stop after this many optimizer steps')
     p.add_argument('--save-dir', default=None, help='Optional: override model_save_path from config')
     p.add_argument('--resume-from', type=str, default=None, help='Path to model checkpoint .pt to resume training')
+    p.add_argument('--optimizer-path', type=str, default=None, help='Optional: path to optimizer state .pt (can be different folder)')
     p.add_argument('--start-epoch', type=int, default=None, help='Epoch to start training from manually')
     return p.parse_args()
 
@@ -31,12 +32,12 @@ def main():
     model_config = ModelConfig()
     train_config = TrainConfig()
 
-    if args.save_dir:
+    if args.save-dir:
         train_config.model_save_path = args.save_dir
 
     os.makedirs(train_config.model_save_path, exist_ok=True)
 
-    # dataset / loader
+    # Dataset / Loader
     dataset = StableDataset(train_config.train_dataset_path, mel_config.hop_length)
     loader = DataLoader(dataset, batch_size=train_config.batch_size, shuffle=True,
                         collate_fn=collate_fn, num_workers=4, pin_memory=True)
@@ -51,15 +52,21 @@ def main():
 
     # ============ RESUME LOGIC ============
     if args.resume_from:
-        print(f"✅ Resuming from specific checkpoint: {args.resume_from}")
-        checkpoint = torch.load(args.resume_from, map_location=device)
-        model.load_state_dict(checkpoint)
-        opt_path = args.resume_from.replace("checkpoint", "optimizer")
+        ckpt_path = args.resume_from
+        print(f"✅ Resuming model from: {ckpt_path}")
+        model.load_state_dict(torch.load(ckpt_path, map_location=device))
+
+        # Ưu tiên optimizer_path nếu có, nếu không tự suy ra
+        opt_path = args.optimizer_path or ckpt_path.replace("checkpoint", "optimizer")
         if os.path.exists(opt_path):
             optimizer.load_state_dict(torch.load(opt_path, map_location=device))
-            print(f"✅ Loaded optimizer state from {opt_path}")
+            print(f"✅ Loaded optimizer from: {opt_path}")
+        else:
+            print(f"⚠️ Optimizer not found at {opt_path}, continuing with new optimizer state.")
+
         current_epoch = args.start_epoch or 0
-        print(f"📌 Starting from epoch {current_epoch}")
+        print(f"📌 Starting training from epoch {current_epoch}")
+
     else:
         current_epoch = continue_training(train_config.model_save_path, model, optimizer)
     # =====================================
