@@ -37,7 +37,7 @@ class TrainConfig:
     learning_rate: float = 1e-4
     num_epochs: int = 10000
     model_save_path: str = './checkpoints'
-    log_dir: str = './runs'
+    log_dir: str = '/kaggle/working/runs'
     log_interval: int = 16
     save_interval: int = 1
     warmup_steps: int = 200
