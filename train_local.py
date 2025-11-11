@@ -2,7 +2,7 @@ import os
 import argparse
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 from datas.dataset import StableDataset, collate_fn
 from text import symbols
