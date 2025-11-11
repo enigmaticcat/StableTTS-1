@@ -72,8 +72,28 @@ def main():
 
                 if step % (train_config.save_interval * len(loader)) == 0:
                     # save checkpoint
-                    torch.save(model.state_dict(), os.path.join(train_config.model_save_path, f'checkpoint_step_{step}.pt'))
-                    torch.save(optimizer.state_dict(), os.path.join(train_config.model_save_path, f'optimizer_step_{step}.pt'))
+                    ckpt_path = os.path.join(train_config.model_save_path, f'checkpoint_step_{step}.pt')
+                    opt_path = os.path.join(train_config.model_save_path, f'optimizer_step_{step}.pt')
+                    torch.save(model.state_dict(), ckpt_path)
+                    torch.save(optimizer.state_dict(), opt_path)
+                    print(f"💾 Saved checkpoint at step {step}")
+
+                    # auto cleanup (keep 5 latest)
+                    import glob
+                    ckpts = sorted(
+                        glob.glob(os.path.join(train_config.model_save_path, "checkpoint_step_*.pt")),
+                        key=os.path.getmtime
+                    )
+                    if len(ckpts) > 5:
+                        for old_ckpt in ckpts[:-5]:
+                            try:
+                                os.remove(old_ckpt)
+                                opt_ckpt = old_ckpt.replace("checkpoint", "optimizer")
+                                if os.path.exists(opt_ckpt):
+                                    os.remove(opt_ckpt)
+                                print(f"🧹 Removed old checkpoint: {old_ckpt}")
+                            except Exception as e:
+                                print(f"⚠️ Could not remove {old_ckpt}: {e}")
 
                 step += 1
                 if args.max_steps and step >= args.max_steps:
