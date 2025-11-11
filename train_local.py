@@ -97,11 +97,14 @@ def main():
                 optimizer.step()
                 scheduler.step()
 
+                # 🟢 Ghi log TensorBoard
                 if step % train_config.log_interval == 0:
                     writer.add_scalar('training/diff_loss', diff_loss.item(), step)
                     writer.add_scalar('training/dur_loss', dur_loss.item(), step)
                     writer.add_scalar('training/prior_loss', prior_loss.item(), step)
+                    print(f"[Step {step}] diff={diff_loss.item():.4f}, dur={dur_loss.item():.4f}, prior={prior_loss.item():.4f}, total={loss.item():.4f}")
 
+                # 💾 Lưu checkpoint định kỳ
                 if step % (train_config.save_interval * len(loader)) == 0:
                     ckpt_path = os.path.join(train_config.model_save_path, f'checkpoint_step_{step}.pt')
                     opt_path = os.path.join(train_config.model_save_path, f'optimizer_step_{step}.pt')
@@ -130,6 +133,8 @@ def main():
                 if args.max_steps and step >= args.max_steps:
                     print('✅ Reached max-steps, exiting.')
                     return
+
+            print(f"📘 Epoch finished — current step={step}, last loss={loss.item():.4f}")
 
     except KeyboardInterrupt:
         print('⛔ Interrupted — saving model...')
