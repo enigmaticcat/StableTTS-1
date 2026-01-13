@@ -1,18 +1,3 @@
-# Copyright 2018 Google Inc. All Rights Reserved.
-#
-# This work is licensed under a Creative Commons Attribution 4.0
-# International License. [https://creativecommons.org/licenses/by/4.0/]
-# =============================================================================
-#
-# This is a pronunciation dictionary.
-#
-# The three tab-separated columns are as follows:
-#
-#   1. Spelling
-#   2. Phonemic transcription
-#   3. Optional disambiguating label
-#
-
 7m	
 a	ʔ ee
 aamir	ʔ aa . m iə

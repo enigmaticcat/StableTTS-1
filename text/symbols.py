@@ -88,9 +88,7 @@ _punctuation = ',.!?~…─'
 _letters = '#Nabdefghijklmnoprstuvwxyzæçøŋœȵɐɑɒɓɔɕɗɘəɚɛɜɣɤɦɪɭɯɵɷɸɻɾɿʂʅʊʋʌʏʑʔʦʮʰʷˀː˥˦˧˨˩̥̩̃̚ᴀᴇ↑↓∅ⱼ '
 '''
 
-# Export all symbols:
-# For Khmer-only training (RECOMMENDED): Remove _CNM3_letters (Chinese), keep _IPA_letters for overlap
-# Remove duplicates from _KHMER_IPA that are already in _IPA_letters or _punctuation
+
 _punctuation_set = set(_punctuation)
 _KHMER_IPA_unique = [s for s in _KHMER_IPA if s not in _IPA_letters and s not in _punctuation_set]
 symbols = [_pad] + list(_punctuation) + list(_IPA_letters) + _KHMER_IPA_unique + _KHMER_UNICODE + _additional

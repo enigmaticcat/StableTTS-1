@@ -1,8 +1,9 @@
 import re
 import os
 from pathlib import Path
-from typing import List, Dict
-
+from typing import List, Dict, Union
+from text.khmer_textnorm import normalize_khmer_text
+from text.khmer_word_segmentation import segment_khmer_text
 
 def _default_lexicon_path() -> str:
     # default location inside the repo: text/lexicons/khmer.tsv
@@ -10,15 +11,6 @@ def _default_lexicon_path() -> str:
 
 
 def load_lexicon(path: str = None) -> Dict[str, List[str]]:
-    """Load a tab-separated lexicon file into a mapping.
-
-    Expected TSV format (no header):
-        orthography\tphone_sequence
-    where phone_sequence is space-separated tokens, e.g.
-        ខ្ញុំ	kh nhom
-
-    Returns a dict mapping orthography -> list of phones.
-    """
     lex = {}
     if path is None:
         path = _default_lexicon_path()
@@ -47,24 +39,41 @@ def load_lexicon(path: str = None) -> Dict[str, List[str]]:
 _LEXICON = load_lexicon()
 
 
-def khmer_g2p(text: str) -> str:
-    """Convert Khmer text to a space-separated phoneme string."""
+def khmer_g2p(text: str, auto_segment: bool = False, return_word_list: bool = False) -> Union[str, List[str]]:
+    """Convert Khmer text to a space-separated phoneme string.
+    
+    Args:
+        text: Input Khmer text
+        auto_segment: If True, apply word segmentation before G2P conversion
+        return_word_list: If True, return a list of strings (one string per word)
+                         instead of a single flattened string.
+    
+    Returns:
+        Space-separated phoneme/character string OR List of strings
+    """
+    # Apply word segmentation if requested
+    text = normalize_khmer_text(text)
+
+    if auto_segment and text:
+        text = segment_khmer_text(text, method='bidirectional')
     if text is None:
-        return ""
+        return [] if return_word_list else ""
     text = re.sub(r"\s+", " ", text).strip()
     if not text:
-        return ""
+        return [] if return_word_list else ""
 
-    out: List[str] = []
+    words: List[str] = []
     for token in text.split(' '):
         if token in _LEXICON:
-            out.extend(_LEXICON[token])
+            words.append(" ".join(_LEXICON[token]))
         else:
-            # fallback: split into characters
-            out.extend(list(token))
+            words.append(token)
+
+    if return_word_list:
+        return words
 
     # ✅ convert list of phonemes/characters to string
-    return " ".join(out)
+    return " ".join(words)
 
 
 

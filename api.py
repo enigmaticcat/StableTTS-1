@@ -67,7 +67,10 @@ class StableTTSAPI(nn.Module):
         device = next(self.parameters()).device
         phonemizer = self.g2p_mapping.get(language)
         
-        text = phonemizer(text)
+        if language == 'khmer':
+            text = phonemizer(text, auto_segment=True)
+        else:
+            text = phonemizer(text)
 
         # Dùng hàm sequence phù hợp cho từng ngôn ngữ
         if language in ['chinese', 'japanese', 'khmer']:

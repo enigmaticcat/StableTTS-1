@@ -3,6 +3,11 @@ import re
 from text.english import english_to_ipa2
 from text.mandarin import chinese_to_cnm3
 from text.japanese import japanese_to_ipa2
+from text.khmer import khmer_g2p
+
+def khmer_cleaners(text):
+    '''Pipeline for Khmer text.'''
+    return khmer_g2p(text, auto_segment=True)
 
 language_module_map = {"PAD":0, "ZH": 1, "EN": 2, "JA": 3}
 
